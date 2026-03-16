@@ -47,6 +47,12 @@ export interface CustomerInfo {
   email: string;
   phone: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
+  street?: string;
+  municipality?: string;
+  province?: string;
+  postal?: string;
   projectFor: string;
   projectSite: string;
   clientType: ClientType;

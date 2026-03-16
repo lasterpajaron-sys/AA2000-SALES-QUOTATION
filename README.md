@@ -10,11 +10,26 @@ View your app in AI Studio: https://ai.studio/apps/dabb6d3d-3ba6-4abc-b436-4a0c3
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js
 
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env` and set your variables (see [Deploy to Vercel](#deploy-to-vercel) for required env vars).
+3. Run the app: `npm run dev`
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Deploy to Vercel
+
+1. Push your repo to GitHub and import the project in [Vercel](https://vercel.com).
+2. Vercel will detect Vite; build command `npm run build` and output `dist` are set in `vercel.json`.
+3. In the Vercel project **Settings → Environment Variables**, add:
+
+   | Name | Value | Notes |
+   |------|--------|--------|
+   | `VITE_API_BASE_URL` | Your backend URL (e.g. `https://your-api.vercel.app` or devtunnels URL) | Required for customers & products API |
+   | `VITE_API_BASE_PATH` | `/api` or leave empty | Optional; used for products path |
+   | `GEMINI_API_KEY` | Your Gemini API key | Required for AI assistant |
+
+   Optional overrides if your backend uses different paths:
+   - `VITE_ADD_CUSTOMER_PATH` — e.g. `/customers/add/customer`
+   - `VITE_PRODUCTS_PATH` — e.g. `/api/get/products`
+
+4. Redeploy. The app is a static SPA; all routes rewrite to `index.html` for client-side routing.

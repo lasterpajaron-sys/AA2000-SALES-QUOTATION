@@ -16,6 +16,7 @@ import AIChat from './AIChat';
 import { sendQuotationEmail } from '../services/emailService';
 import { blobToBase64 } from '../services/pdfService';
 import { addCustomer } from '../services/customerApi';
+import { fetchProducts } from '../services/productsApi';
 import * as XLSX from 'xlsx';
 
 interface DashboardProps {
@@ -86,8 +87,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, userRole }) => {
         const savedPipeline = await db.pipeline.toArray();
         if (savedPipeline.length > 0) setSavedQuotes(savedPipeline);
 
-        const savedCatalog = await db.catalog.toArray();
-        setDynamicProducts(savedCatalog);
+        try {
+          const apiProducts = await fetchProducts();
+          if (apiProducts.length > 0) setDynamicProducts(apiProducts);
+          else {
+            const savedCatalog = await db.catalog.toArray();
+            setDynamicProducts(savedCatalog);
+          }
+        } catch {
+          const savedCatalog = await db.catalog.toArray();
+          setDynamicProducts(savedCatalog);
+        }
 
         const savedLogs = await db.adminLogs.toArray();
         if (savedLogs.length > 0) setAdminLogs(savedLogs);

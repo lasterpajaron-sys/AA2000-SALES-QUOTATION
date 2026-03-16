@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CustomerInfo, ClientType } from '../types';
 import { INITIAL_CUSTOMER } from '../constants';
-import { Trash2 } from 'lucide-react';
+import { Trash2, MapPin, Crosshair } from 'lucide-react';
+import { reverseGeocode, searchPlaces } from '../services/geocoding';
+import LocationPicker, { type LatLon } from './LocationPicker';
+
+const DEFAULT_LOCATION: LatLon = { lat: 14.5995, lon: 120.9842 };
 
 interface Props {
   customer: CustomerInfo;
@@ -11,6 +15,11 @@ interface Props {
 
 const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onValidationChange }) => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [location, setLocation] = useState<LatLon | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
+  const [locQuery, setLocQuery] = useState('');
+  const [locResults, setLocResults] = useState<{ displayName: string; lat: number; lon: number }[]>([]);
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
@@ -43,9 +52,82 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    // Extract only numbers and limit to 11 digits
     const numericValue = val.replace(/[^\d]/g, '').slice(0, 11);
     handleChange('phone', numericValue);
+  };
+
+  const applyReverseGeocode = async (lat: number, lon: number) => {
+    try {
+      const addr = await reverseGeocode(lat, lon);
+      const street = addr.street ?? '';
+      const municipality = addr.city ?? '';
+      const province = addr.province ?? '';
+      const postal = addr.postcode ?? '';
+      const pieces = [street, municipality, province, postal].filter(Boolean);
+      const addressStr = pieces.length ? pieces.join(', ') : `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      setCustomer((prev) => ({
+        ...prev,
+        address: addressStr,
+        latitude: lat,
+        longitude: lon,
+        street: street || undefined,
+        municipality: municipality || undefined,
+        province: province || undefined,
+        postal: postal || undefined,
+      }));
+    } catch {
+      setCustomer((prev) => ({
+        ...prev,
+        address: prev.address || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+        latitude: lat,
+        longitude: lon,
+      }));
+    }
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setLocError('Location not supported in this browser.');
+      return;
+    }
+    setLocError(null);
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        setLocation({ lat, lon });
+        await applyReverseGeocode(lat, lon);
+        setLocLoading(false);
+      },
+      (err) => {
+        setLocError(err.message || 'Failed to get current location.');
+        setLocLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleRecenter = () => {
+    setLocation((prev) => (prev ? { ...prev } : DEFAULT_LOCATION));
+  };
+
+  const handleSearchPlace = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = locQuery.trim();
+    if (!q) return;
+    setLocError(null);
+    setLocLoading(true);
+    try {
+      const mapped = await searchPlaces(q);
+      setLocResults(mapped);
+      if (!mapped.length) setLocError('No places found. Try a more specific search.');
+    } catch (err) {
+      setLocError(err instanceof Error ? err.message : 'Failed to search for that place.');
+      setLocResults([]);
+    } finally {
+      setLocLoading(false);
+    }
   };
 
   return (
@@ -157,6 +239,97 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
             onChange={(e) => handleChange('address', e.target.value)}
             className="w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
           />
+          {(customer.latitude != null && customer.longitude != null) && (
+            <p className="mt-1.5 text-[10px] text-slate-500 font-medium">
+              Lat: {customer.latitude.toFixed(6)}, Long: {customer.longitude.toFixed(6)}
+            </p>
+          )}
+        </div>
+
+        <div className="md:col-span-2 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <MapPin className="h-4 w-4 text-indigo-600" />
+              <span className="font-medium">Pin recipient location (optional)</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                disabled={locLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+              >
+                <Crosshair className="h-3.5 w-3.5" />
+                {locLoading ? 'Locating…' : 'Use current location'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLocation(DEFAULT_LOCATION); applyReverseGeocode(DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lon); }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+              >
+                Recenter map
+              </button>
+            </div>
+          </div>
+          {location !== null && (
+            <div className="space-y-2">
+              <form onSubmit={handleSearchPlace} className="flex flex-wrap gap-2 items-center">
+                <input
+                  type="text"
+                  value={locQuery}
+                  onChange={(e) => setLocQuery(e.target.value)}
+                  placeholder="Search place, street, city..."
+                  className="flex-1 min-w-0 border-2 border-slate-100 rounded-xl px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={locLoading}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-60 transition-all"
+                >
+                  {locLoading ? 'Searching…' : 'Search'}
+                </button>
+              </form>
+              {locResults.length > 0 && (
+                <div className="space-y-1">
+                  {locResults.map((r, idx) => (
+                    <button
+                      key={`${r.lat}-${r.lon}-${idx}`}
+                      type="button"
+                      onClick={async () => {
+                        setLocation({ lat: r.lat, lon: r.lon });
+                        setLocQuery(r.displayName);
+                        setLocResults([]);
+                        await applyReverseGeocode(r.lat, r.lon);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      {r.displayName}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <LocationPicker
+                location={location}
+                onChange={async (loc) => {
+                  setLocation(loc);
+                  await applyReverseGeocode(loc.lat, loc.lon);
+                }}
+              />
+              <p className="text-[10px] text-slate-400 font-medium">
+                Drag the pin or click on the map to adjust. Address above updates automatically.
+              </p>
+            </div>
+          )}
+          {location === null && (
+            <button
+              type="button"
+              onClick={() => setLocation(DEFAULT_LOCATION)}
+              className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-bold text-slate-500 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all"
+            >
+              Show map to pin location
+            </button>
+          )}
+          {locError && <p className="text-xs font-bold text-red-600">{locError}</p>}
         </div>
 
         <div className="space-y-2 md:col-span-2">
