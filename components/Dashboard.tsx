@@ -15,6 +15,7 @@ import ExcelImporter from './ExcelImporter';
 import AIChat from './AIChat';
 import { sendQuotationEmail } from '../services/emailService';
 import { blobToBase64 } from '../services/pdfService';
+import { addCustomer } from '../services/customerApi';
 import * as XLSX from 'xlsx';
 
 interface DashboardProps {
@@ -349,6 +350,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, userRole }) => {
 
   const handleSubmitPipeline = async () => {
     if (!isFormValid || items.length === 0) return;
+
+    try {
+      await addCustomer(customer);
+    } catch (e: any) {
+      showToast(`Submit failed: ${e?.message || 'Could not reach server'}`, 'error');
+      return;
+    }
+
     const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const laborCost = customer.hasLabor ? (customer.laborCost || 0) : 0;
     const discountAmount = discountType === 'percentage' ? (subtotal * (discountValue / 100)) : discountValue;
@@ -358,10 +367,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, userRole }) => {
     const newId = `PQ-${Date.now().toString().slice(-6)}`;
     const newQuote: QuotationRecord = {
       id: newId,
-      items: [...items], 
+      items: [...items],
       laborServices: [...laborServices],
-      customer: { ...customer }, 
-      paymentMethod, 
+      customer: { ...customer },
+      paymentMethod,
       discountPercent: discountType === 'percentage' ? discountValue : 0,
       discountType,
       discountValue,
@@ -371,8 +380,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, userRole }) => {
       logs: [{ date: new Date().toISOString(), note: 'Quotation created in system.', user: 'Staff Admin' }],
       attachments: [], version: 1
     };
-    persistQuotes([newQuote, ...savedQuotes]);
-    showToast(`Quotation ${newQuote.id} saved to pipeline!`);
+    await persistQuotes([newQuote, ...savedQuotes]);
+    showToast('Quote submitted. Customer saved to backend; quotation saved to pipeline.');
     setItems([]); setUploadedFiles([]); setCustomer(INITIAL_CUSTOMER);
     setDiscountValue(0); setDiscountType('percentage'); setCurrentStatus(QuotationStatus.INQUIRY); setActiveTab('pipeline');
   };

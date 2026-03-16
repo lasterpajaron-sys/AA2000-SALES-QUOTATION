@@ -14,8 +14,9 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
 
   const validate = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!customer.fullName.trim()) newErrors.fullName = 'Attention To is required';
-    if (!customer.email) newErrors.email = 'Email address is required';
+    if (!customer.fname?.trim()) newErrors.fname = 'First name is required';
+    if (!customer.lname?.trim()) newErrors.lname = 'Last name is required';
+    if (!customer.email?.trim()) newErrors.email = 'Email address is required';
     if (!customer.phone) {
       newErrors.phone = 'Phone number is required';
     } else if (customer.phone.length !== 11) {
@@ -31,7 +32,13 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
   }, [customer]);
 
   const handleChange = (field: keyof CustomerInfo, value: any) => {
-    setCustomer(prev => ({ ...prev, [field]: value }));
+    setCustomer(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'fname' || field === 'mname' || field === 'lname') {
+        next.fullName = [next.fname, next.mname, next.lname].filter(Boolean).join(' ').trim();
+      }
+      return next;
+    });
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,14 +70,63 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Attention To <span className="text-red-500">*</span></label>
+          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">First Name <span className="text-red-500">*</span></label>
           <input 
             type="text"
-            value={customer.fullName}
-            onChange={(e) => handleChange('fullName', e.target.value)}
-            className="w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-            placeholder="e.g. MS. GEMMALYN VENTUR"
+            value={customer.fname ?? ''}
+            onChange={(e) => handleChange('fname', e.target.value)}
+            className={`w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 ${errors.fname ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:border-indigo-500 outline-none transition-all`}
+            placeholder="e.g. Gemmalyn"
           />
+          {errors.fname && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.fname}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Middle Name</label>
+          <input 
+            type="text"
+            value={customer.mname ?? ''}
+            onChange={(e) => handleChange('mname', e.target.value)}
+            className="w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+            placeholder="e.g. Santos"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Last Name <span className="text-red-500">*</span></label>
+          <input 
+            type="text"
+            value={customer.lname ?? ''}
+            onChange={(e) => handleChange('lname', e.target.value)}
+            className={`w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 ${errors.lname ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:border-indigo-500 outline-none transition-all`}
+            placeholder="e.g. Ventur"
+          />
+          {errors.lname && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.lname}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Email <span className="text-red-500">*</span></label>
+          <input 
+            type="email"
+            value={customer.email ?? ''}
+            onChange={(e) => handleChange('email', e.target.value)}
+            className={`w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 ${errors.email ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:border-indigo-500 outline-none transition-all`}
+            placeholder="e.g. name@company.com"
+          />
+          {errors.email && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.email}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Tel/Mobile No. (11 digits) <span className="text-red-500">*</span></label>
+          <input 
+            type="text"
+            value={customer.phone ?? ''}
+            onChange={handlePhoneChange}
+            className={`w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 ${errors.phone ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono`}
+            placeholder="09XXXXXXXXX"
+            maxLength={11}
+          />
+          {errors.phone && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.phone}</p>}
         </div>
 
         <div className="space-y-2">
@@ -89,29 +145,6 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
             type="text"
             value={customer.companyName}
             onChange={(e) => handleChange('companyName', e.target.value)}
-            className="w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Tel/Mobile No. (11 Digits) <span className="text-red-500">*</span></label>
-          <input 
-            type="text"
-            value={customer.phone}
-            onChange={handlePhoneChange}
-            className={`w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 ${errors.phone ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono`}
-            placeholder="09XXXXXXXXX"
-            maxLength={11}
-          />
-          {errors.phone && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.phone}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Email <span className="text-red-500">*</span></label>
-          <input 
-            type="email"
-            value={customer.email}
-            onChange={(e) => handleChange('email', e.target.value)}
             className="w-full p-3 sm:p-4 text-sm bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
           />
         </div>

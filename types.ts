@@ -38,6 +38,9 @@ export enum ClientType {
 
 export interface CustomerInfo {
   fullName: string;
+  fname: string;
+  mname: string;
+  lname: string;
   attentionTo: string;
   position: string;
   companyName: string;

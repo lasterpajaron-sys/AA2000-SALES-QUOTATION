@@ -26,6 +26,9 @@ export const COMPANY_DETAILS = {
 
 export const INITIAL_CUSTOMER: CustomerInfo = {
   fullName: '',
+  fname: '',
+  mname: '',
+  lname: '',
   attentionTo: '',
   position: '',
   companyName: '',
