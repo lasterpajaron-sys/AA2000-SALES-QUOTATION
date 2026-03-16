@@ -32,7 +32,7 @@ export const processConversation = async (
     };
   }
   const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-2.0-flash";
+  const model = "gemini-2.5-flash";
 
   const systemInstruction = `You are an expert sales assistant for AA2000 Security and Technology Solutions. 
 Your goal is to help the admin create a complete Sales Quotation by extracting information from the conversation.
