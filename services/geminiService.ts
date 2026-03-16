@@ -32,7 +32,7 @@ export const processConversation = async (
     };
   }
   const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-3-pro-preview";
+  const model = "gemini-2.0-flash";
 
   const systemInstruction = `You are an expert sales assistant for AA2000 Security and Technology Solutions. 
 Your goal is to help the admin create a complete Sales Quotation by extracting information from the conversation.
@@ -161,7 +161,10 @@ INSTRUCTIONS:
     return JSON.parse(response.text || '{"reply": "I encountered an error processing that."}');
   } catch (e: any) {
     console.error("Gemini Chat Error:", e);
-    return { reply: "I'm having trouble connecting to my brain right now. Please try again." };
+    const msg = (e?.message ?? String(e)).replace(/api[_-]?key|key\s*=\s*[\w-]+/gi, "***");
+    return {
+      reply: `I couldn't connect to the AI service. ${msg ? `Details: ${msg.slice(0, 200)}` : "Check that GEMINI_API_KEY is set in Vercel and redeploy."}`,
+    };
   }
 };
 
@@ -169,8 +172,8 @@ export const parseRequest = async (prompt: string, availableProducts: Product[])
   const apiKey = process.env.API_KEY ?? process.env.GEMINI_API_KEY ?? '';
   if (!apiKey?.trim()) throw new Error('GEMINI_API_KEY is not set. Add it in Vercel Environment Variables and redeploy.');
   const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-3-pro-preview";
-  
+  const model = "gemini-2.0-flash";
+
   try {
     const response = await ai.models.generateContent({
       model,
@@ -211,7 +214,7 @@ export const parseImageRequest = async (base64Data: string, mimeType: string, av
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-2.0-flash',
       contents: {
         parts: [
           {
