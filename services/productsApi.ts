@@ -20,9 +20,14 @@ function getProductsUrl(): string {
     const p = pathOverride.trim().replace(/^\/+/, '/');
     return `${baseClean}${p}`;
   }
-  const basePath = ((import.meta as any).env?.VITE_API_BASE_PATH as string | undefined) ?? '';
-  const pathSegment = basePath.trim() ? `/${basePath.replace(/^\/+|\/+$/g, '')}` : '';
-  return `${baseClean}${pathSegment}/get/products`;
+  // Default: backend routes are mounted under /products with
+  //   router.get('/get/products', ...)
+  // and router is mounted as app.use('/products', router)
+  // → full path: /products/get/products
+  //
+  // If your mounting changes in the future, override via VITE_PRODUCTS_PATH
+  // e.g. VITE_PRODUCTS_PATH=/api/products/get/products
+  return `${baseClean}/products/get/products`;
 }
 
 function mapBackendProductToFrontend(row: BackendProduct): Product {

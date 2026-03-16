@@ -57,8 +57,10 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
   };
 
   const applyReverseGeocode = async (lat: number, lon: number) => {
+    console.log('[CustomerForm] applyReverseGeocode called', { lat, lon });
     try {
       const addr = await reverseGeocode(lat, lon);
+      console.log('[CustomerForm] reverseGeocode result', addr);
       const street = addr.street ?? '';
       const municipality = addr.city ?? '';
       const province = addr.province ?? '';
@@ -76,6 +78,7 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
         postal: postal || undefined,
       }));
     } catch {
+      console.warn('[CustomerForm] reverseGeocode failed, falling back to raw coordinates');
       setCustomer((prev) => ({
         ...prev,
         address: prev.address || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
@@ -86,6 +89,7 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
   };
 
   const handleUseCurrentLocation = () => {
+    console.log('[CustomerForm] handleUseCurrentLocation clicked');
     if (!('geolocation' in navigator)) {
       setLocError('Location not supported in this browser.');
       return;
@@ -94,6 +98,7 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
     setLocLoading(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        console.log('[CustomerForm] geolocation success', pos.coords);
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
         setLocation({ lat, lon });
@@ -101,6 +106,7 @@ const CustomerForm: React.FC<Props> = React.memo(({ customer, setCustomer, onVal
         setLocLoading(false);
       },
       (err) => {
+        console.error('[CustomerForm] geolocation error', err);
         setLocError(err.message || 'Failed to get current location.');
         setLocLoading(false);
       },

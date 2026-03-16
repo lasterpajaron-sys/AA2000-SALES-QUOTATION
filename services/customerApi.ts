@@ -7,8 +7,6 @@ type AddCustomerPayload = {
   lname: string;
   email: string;
   c_num: string;
-  address?: string;
-  addressId?: number;
   latitude?: number;
   longitude?: number;
   street?: string;
@@ -58,8 +56,6 @@ export async function addCustomer(customer: CustomerInfo): Promise<AddCustomerRe
     lname,
     email: customer.email ?? '',
     c_num: customer.phone ?? '',
-    address: addressStr || undefined,
-    addressId: 0,
     role_ID: 0,
     latitude: customer.latitude ?? 0,
     longitude: customer.longitude ?? 0,
