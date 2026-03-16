@@ -161,9 +161,16 @@ INSTRUCTIONS:
     return JSON.parse(response.text || '{"reply": "I encountered an error processing that."}');
   } catch (e: any) {
     console.error("Gemini Chat Error:", e);
-    const msg = (e?.message ?? String(e)).replace(/api[_-]?key|key\s*=\s*[\w-]+/gi, "***");
+    const raw = (e?.message ?? String(e)) || '';
+    const isQuota = /429|quota|exceeded|rate.?limit/i.test(raw);
+    if (isQuota) {
+      return {
+        reply: "I've hit the **free tier limit** for this API key. Even with little or no use here, the key may have been used elsewhere or the free quota is very low.\n\n• **Create a new key** — [Google AI Studio](https://aistudio.google.com/apikey) → Create API key, then set it as **GEMINI_API_KEY** in Vercel and redeploy.\n• **Check usage** — In AI Studio, see which key is used and any quota shown.\n• **Wait** — Free limits often reset daily or monthly.\n\nThe rest of the app (quotes, products, customers) still works; only the AI chat is limited by quota.",
+      };
+    }
+    const msg = raw.replace(/api[_-]?key|key\s*=\s*[\w-]+/gi, "***").slice(0, 180);
     return {
-      reply: `I couldn't connect to the AI service. ${msg ? `Details: ${msg.slice(0, 200)}` : "Check that GEMINI_API_KEY is set in Vercel and redeploy."}`,
+      reply: msg ? `I couldn't connect to the AI service. ${msg}` : "Check that GEMINI_API_KEY is set in Vercel and redeploy.",
     };
   }
 };
