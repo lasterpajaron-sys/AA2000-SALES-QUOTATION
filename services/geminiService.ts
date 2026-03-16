@@ -25,7 +25,13 @@ export const processConversation = async (
   },
   images: { data: string; mimeType: string }[] = []
 ): Promise<ChatResponse> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY ?? process.env.GEMINI_API_KEY ?? '';
+  if (!apiKey || apiKey.trim() === '') {
+    return {
+      reply: "The AI assistant is not configured. On Vercel: add **GEMINI_API_KEY** in Project Settings → Environment Variables, then redeploy (without cache). Get a key at https://aistudio.google.com/apikey",
+    };
+  }
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-3-pro-preview";
 
   const systemInstruction = `You are an expert sales assistant for AA2000 Security and Technology Solutions. 
@@ -160,7 +166,9 @@ INSTRUCTIONS:
 };
 
 export const parseRequest = async (prompt: string, availableProducts: Product[]) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY ?? process.env.GEMINI_API_KEY ?? '';
+  if (!apiKey?.trim()) throw new Error('GEMINI_API_KEY is not set. Add it in Vercel Environment Variables and redeploy.');
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-3-pro-preview";
   
   try {
@@ -197,7 +205,9 @@ export const parseRequest = async (prompt: string, availableProducts: Product[])
 };
 
 export const parseImageRequest = async (base64Data: string, mimeType: string, availableProducts: Product[]) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY ?? process.env.GEMINI_API_KEY ?? '';
+  if (!apiKey?.trim()) throw new Error('GEMINI_API_KEY is not set. Add it in Vercel Environment Variables and redeploy.');
+  const ai = new GoogleGenAI({ apiKey });
   
   try {
     const response = await ai.models.generateContent({

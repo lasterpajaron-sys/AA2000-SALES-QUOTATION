@@ -5,7 +5,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    const geminiKey = env.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY ?? '';
+    // Prefer process.env so Vercel-injected GEMINI_API_KEY is used at build time
+    const geminiKey = process.env.GEMINI_API_KEY ?? env.GEMINI_API_KEY ?? '';
     return {
       server: {
         port: 3000,

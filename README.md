@@ -33,3 +33,18 @@ View your app in AI Studio: https://ai.studio/apps/dabb6d3d-3ba6-4abc-b436-4a0c3
    - `VITE_PRODUCTS_PATH` — e.g. `/api/get/products`
 
 4. Redeploy. The app is a static SPA; all routes rewrite to `index.html` for client-side routing.
+
+### AI assistant not working on Vercel?
+
+The Gemini API key is **baked in at build time**. If the AI chat fails or does nothing on Vercel:
+
+1. Open your project on [Vercel Dashboard](https://vercel.com) → **Settings** → **Environment Variables**.
+2. Add a variable:
+   - **Name:** `GEMINI_API_KEY` (exactly, no `VITE_` prefix)
+   - **Value:** your [Google AI Studio](https://aistudio.google.com/apikey) API key
+   - **Environment:** check Production (and Preview if you use preview deployments).
+3. **Redeploy:** go to **Deployments** → ⋮ on the latest deployment → **Redeploy**.  
+   Do not “Use existing Build Cache”; the new build must run so the key is inlined.
+4. Wait for the deploy to finish and open the app again. The AI should respond.
+
+If it still fails, open the browser console (F12) on the Vercel URL and check for errors mentioning “API key” or “403”.
