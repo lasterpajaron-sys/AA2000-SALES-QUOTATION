@@ -17,6 +17,7 @@ import { sendQuotationEmail } from '../services/emailService';
 import { blobToBase64 } from '../services/pdfService';
 import { addCustomer } from '../services/customerApi';
 import { fetchProducts } from '../services/productsApi';
+import { deriveTierPricesFromBasePrice } from '../services/pricing';
 import * as XLSX from 'xlsx';
 
 interface DashboardProps {
@@ -182,22 +183,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, userRole }) => {
   };
 
   const getPriceForClient = useCallback((product: Product, clientType: ClientType, volume: number): number => {
+    const tier = deriveTierPricesFromBasePrice(product.baseCost || 0);
     const isBigVolume = volume >= 50;
-    const base = product.baseCost || 0;
 
     switch (clientType) {
-      case ClientType.DEALER: 
-        if (isBigVolume) return product.dealerBigVolumePrice || (base * 1.20);
-        return product.dealerPrice || (base * 1.30);
-      case ClientType.SYSTEM_CONTRACTOR: 
-        if (isBigVolume) return product.contractorBigVolumePrice || (base * 1.10);
-        return product.contractorPrice || (base * 1.15);
+      case ClientType.DEALER:
+        return isBigVolume ? tier.dealerBigVolumePrice : tier.dealerPrice;
+      case ClientType.SYSTEM_CONTRACTOR:
+        return isBigVolume ? tier.contractorBigVolumePrice : tier.contractorPrice;
       case ClientType.END_USER:
-      case ClientType.GOVERNMENT: 
-        if (isBigVolume) return product.endUserBigVolumePrice || (base * 1.30);
-        return product.endUserPrice || (base * 1.50);
-      default: 
-        return product.price || (base * 1.50);
+      case ClientType.GOVERNMENT:
+        return isBigVolume ? tier.endUserBigVolumePrice : tier.endUserPrice;
+      default:
+        return tier.endUserPrice;
     }
   }, []);
 

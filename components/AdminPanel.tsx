@@ -3,6 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Product, AdminLog, QuotationRecord, SystemBackup, PDFTemplate } from '../types';
 import { Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { deriveTierPricesFromBasePrice, END_USER_MARKUP, roundMoney } from '../services/pricing';
 
 interface Props {
   currentProducts: Product[];
@@ -293,18 +294,19 @@ const AdminPanel: React.FC<Props> = React.memo(({ currentProducts, adminLogs, cu
         const costStr = String(getVal(['updated price', 'base cost', 'purchase amount', 'cost', 'unit cost']) || '0').replace(/[^\d.]/g, '');
         baseCost = parseFloat(costStr) || 0;
 
-        // Dealer price is 30% markup on base cost
-        dealerPrice = baseCost * 1.3;
-        dealerBigVolumePrice = baseCost * 1.20; // Slightly lower for big volume (20%)
-        
-        // Contractor price is 15% markup on base cost
-        contractorPrice = baseCost * 1.15;
-        contractorBigVolumePrice = baseCost * 1.10;
-        
-        endUserPrice = parseFloat(String(getVal(['end user', 'end-user', 'srp', 'small volume', 'selling price']) || '0').replace(/[^\d.]/g, '')) || 0;
-        endUserBigVolumePrice = parseFloat(String(getVal(['end user big volume', 'end-user big volume', 'end user bv', 'big volume']) || '0').replace(/[^\d.]/g, '')) || 0;
-        
-        price = endUserPrice || (baseCost * 1.5);
+        const endUserParsed = parseFloat(String(getVal(['end user', 'end-user', 'srp', 'small volume', 'selling price']) || '0').replace(/[^\d.]/g, '')) || 0;
+        if (baseCost <= 0 && endUserParsed > 0) {
+          baseCost = roundMoney(endUserParsed / END_USER_MARKUP);
+        }
+
+        const tier = deriveTierPricesFromBasePrice(baseCost);
+        price = tier.endUserPrice;
+        dealerPrice = tier.dealerPrice;
+        dealerBigVolumePrice = tier.dealerBigVolumePrice;
+        contractorPrice = tier.contractorPrice;
+        contractorBigVolumePrice = tier.contractorBigVolumePrice;
+        endUserPrice = tier.endUserPrice;
+        endUserBigVolumePrice = tier.endUserBigVolumePrice;
       } else if (!Array.isArray(row)) {
         const keys = Object.keys(row);
         const findKey = (keywords: string[]) => {
@@ -321,12 +323,7 @@ const AdminPanel: React.FC<Props> = React.memo(({ currentProducts, adminLogs, cu
         const nameKey = findKey(['item description', 'description', 'item name', 'name']);
         const otherDescKey = findKey(['other description', 'specifications', 'remarks']);
         const costKey = findKey(['updated price', 'base cost', 'purchase amount', 'cost', 'unit cost']);
-        const dealerPriceKey = findKey(['dealer price', 'dealer']);
-        const contractorPriceKey = findKey(['contractor price', 'contractor']);
         const endUserPriceKey = findKey(['end user', 'end-user', 'srp', 'small volume', 'selling price']);
-        const dealerBigVolumeKey = findKey(['dealer big volume', 'dealer bv', 'dealer volume']);
-        const contractorBigVolumeKey = findKey(['contractor big volume', 'contractor bv', 'contractor volume']);
-        const endUserBigVolumeKey = findKey(['end user big volume', 'end-user big volume', 'end user bv', 'big volume']);
         
         category = String(row[categoryKey || ''] || '').trim();
         brand = String(row[brandKey || ''] || '').trim();
@@ -338,26 +335,34 @@ const AdminPanel: React.FC<Props> = React.memo(({ currentProducts, adminLogs, cu
         const costStr = String(row[costKey || ''] || '0').replace(/[^\d.]/g, '');
         baseCost = parseFloat(costStr) || 0;
 
-        // Dealer price is 30% markup on base cost
-        dealerPrice = baseCost * 1.3;
-        dealerBigVolumePrice = baseCost * 1.20;
+        const endUserParsed = parseFloat(String(row[endUserPriceKey || ''] || '0').replace(/[^\d.]/g, '')) || 0;
+        if (baseCost <= 0 && endUserParsed > 0) {
+          baseCost = roundMoney(endUserParsed / END_USER_MARKUP);
+        }
 
-        // Contractor price is 15% markup on base cost
-        contractorPrice = baseCost * 1.15;
-        contractorBigVolumePrice = baseCost * 1.10;
-
-        endUserPrice = parseFloat(String(row[endUserPriceKey || ''] || '0').replace(/[^\d.]/g, '')) || 0;
-        endUserBigVolumePrice = parseFloat(String(row[endUserBigVolumeKey || ''] || '0').replace(/[^\d.]/g, '')) || 0;
-        
-        price = endUserPrice || (baseCost * 1.5);
+        const tier = deriveTierPricesFromBasePrice(baseCost);
+        price = tier.endUserPrice;
+        dealerPrice = tier.dealerPrice;
+        dealerBigVolumePrice = tier.dealerBigVolumePrice;
+        contractorPrice = tier.contractorPrice;
+        contractorBigVolumePrice = tier.contractorBigVolumePrice;
+        endUserPrice = tier.endUserPrice;
+        endUserBigVolumePrice = tier.endUserBigVolumePrice;
       } else {
         // Simple array fallback
         model = row[2]?.trim() || row[0]?.trim() || '';
         name = row[3]?.trim() || row[1]?.trim() || '';
         description = row[4]?.trim() || '';
         const priceStr = row[7]?.toString().replace(/[^\d.]/g, '') || '0';
-        price = parseFloat(priceStr);
-        baseCost = price;
+        baseCost = parseFloat(priceStr) || 0;
+        const tierSimple = deriveTierPricesFromBasePrice(baseCost);
+        price = tierSimple.endUserPrice;
+        dealerPrice = tierSimple.dealerPrice;
+        dealerBigVolumePrice = tierSimple.dealerBigVolumePrice;
+        contractorPrice = tierSimple.contractorPrice;
+        contractorBigVolumePrice = tierSimple.contractorBigVolumePrice;
+        endUserPrice = tierSimple.endUserPrice;
+        endUserBigVolumePrice = tierSimple.endUserBigVolumePrice;
         category = row[0]?.trim() || '';
       }
 
@@ -690,23 +695,26 @@ const AdminPanel: React.FC<Props> = React.memo(({ currentProducts, adminLogs, cu
                        </tr>
                      </thead>
                      <tbody className="divide-y divide-slate-50">
-                       {parsedPreview.map((p, idx) => (
+                       {parsedPreview.map((p, idx) => {
+                         const t = deriveTierPricesFromBasePrice(p.baseCost);
+                         return (
                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
                            <td className="px-4 py-3 text-[10px] font-black text-indigo-600">{p.brand}</td>
                            <td className="px-4 py-3 text-[10px] font-bold text-slate-500">{p.model || '-'}</td>
                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 truncate max-w-[150px]">{p.name}</td>
                            <td className="px-4 py-3 text-[10px] font-black text-slate-900">₱{p.baseCost.toLocaleString()}</td>
                            <td className="px-4 py-3 text-[9px] font-bold text-slate-500">
-                             ₱{p.dealerPrice?.toLocaleString()} / <span className="text-emerald-600">₱{p.dealerBigVolumePrice?.toLocaleString()}</span>
+                             ₱{t.dealerPrice.toLocaleString()} / <span className="text-emerald-600">₱{t.dealerBigVolumePrice.toLocaleString()}</span>
                            </td>
                            <td className="px-4 py-3 text-[9px] font-bold text-slate-500">
-                             ₱{p.contractorPrice?.toLocaleString()} / <span className="text-emerald-600">₱{p.contractorBigVolumePrice?.toLocaleString()}</span>
+                             ₱{t.contractorPrice.toLocaleString()} / <span className="text-emerald-600">₱{t.contractorBigVolumePrice.toLocaleString()}</span>
                            </td>
                            <td className="px-4 py-3 text-[9px] font-bold text-slate-500">
-                             ₱{p.endUserPrice?.toLocaleString()} / <span className="text-emerald-600">₱{p.endUserBigVolumePrice?.toLocaleString()}</span>
+                             ₱{t.endUserPrice.toLocaleString()} / <span className="text-emerald-600">₱{t.endUserBigVolumePrice.toLocaleString()}</span>
                            </td>
                          </tr>
-                       ))}
+                         );
+                       })}
                      </tbody>
                    </table>
                  </div>
@@ -753,7 +761,9 @@ const AdminPanel: React.FC<Props> = React.memo(({ currentProducts, adminLogs, cu
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {groupedProducts[selectedBrand]?.map(p => (
+                  {groupedProducts[selectedBrand]?.map(p => {
+                    const t = deriveTierPricesFromBasePrice(p.baseCost);
+                    return (
                     <div key={p.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white transition-all group relative">
                       <button onClick={() => onUpdateCatalog(currentProducts.filter(x => x.id !== p.id), { type: 'DELETE', details: `Deleted: ${p.model}` })} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -765,27 +775,31 @@ const AdminPanel: React.FC<Props> = React.memo(({ currentProducts, adminLogs, cu
                       <p className="text-sm font-black text-slate-800 mb-1">{p.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-[9px] font-black px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded uppercase">{p.category}</span>
-                        <p className="text-[11px] font-black text-slate-900">₱{p.baseCost.toLocaleString()}</p>
+                        <div className="text-right">
+                          <p className="text-[8px] font-black text-slate-400 uppercase">Base</p>
+                          <p className="text-[11px] font-black text-slate-900">₱{p.baseCost.toLocaleString()}</p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
                         <div className="text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Dealer</p>
-                          <p className="text-[10px] font-bold text-slate-600">₱{p.dealerPrice?.toLocaleString() || '0'}</p>
-                          {p.dealerBigVolumePrice ? <p className="text-[8px] font-bold text-emerald-600">BV: ₱{p.dealerBigVolumePrice.toLocaleString()}</p> : null}
+                          <p className="text-[10px] font-bold text-slate-600">₱{t.dealerPrice.toLocaleString()}</p>
+                          <p className="text-[8px] font-bold text-emerald-600">BV: ₱{t.dealerBigVolumePrice.toLocaleString()}</p>
                         </div>
                         <div className="text-center border-x border-slate-100">
                           <p className="text-[8px] font-black text-slate-400 uppercase">Contractor</p>
-                          <p className="text-[10px] font-bold text-slate-600">₱{p.contractorPrice?.toLocaleString() || '0'}</p>
-                          {p.contractorBigVolumePrice ? <p className="text-[8px] font-bold text-emerald-600">BV: ₱{p.contractorBigVolumePrice.toLocaleString()}</p> : null}
+                          <p className="text-[10px] font-bold text-slate-600">₱{t.contractorPrice.toLocaleString()}</p>
+                          <p className="text-[8px] font-bold text-emerald-600">BV: ₱{t.contractorBigVolumePrice.toLocaleString()}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-[8px] font-black text-slate-400 uppercase">End User</p>
-                          <p className="text-[10px] font-bold text-slate-600">₱{p.endUserPrice?.toLocaleString() || '0'}</p>
-                          {p.endUserBigVolumePrice ? <p className="text-[8px] font-bold text-emerald-600">BV: ₱{p.endUserBigVolumePrice.toLocaleString()}</p> : null}
+                          <p className="text-[10px] font-bold text-slate-600">₱{t.endUserPrice.toLocaleString()}</p>
+                          <p className="text-[8px] font-bold text-emerald-600">BV: ₱{t.endUserBigVolumePrice.toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
